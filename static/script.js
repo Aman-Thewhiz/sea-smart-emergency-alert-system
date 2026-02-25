@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 const statusMessage = document.getElementById("statusMessage");
 const alertButton = document.getElementById("alertButton");
 const coordsDisplay = document.getElementById("coordsDisplay");
@@ -477,47 +476,6 @@ fetchHistory();
 fetchTrackingHistory();
 loadContacts();
 setTrackingStatus(false);
-=======
-const statusMessage = document.getElementById("statusMessage");
-const alertButton = document.getElementById("alertButton");
-const coordsDisplay = document.getElementById("coordsDisplay");
-const lastAlertDisplay = document.getElementById("lastAlertDisplay");
-const historyTableBody = document.getElementById("historyTableBody");
-const refreshHistory = document.getElementById("refreshHistory");
-const trackingToggle = document.getElementById("trackingToggle");
-const statusIndicator = document.getElementById("statusIndicator");
-const themeToggle = document.getElementById("themeToggle");
-const startTrackingBtn = document.getElementById("startTrackingBtn");
-const stopTrackingBtn = document.getElementById("stopTrackingBtn");
-const trackingStatus = document.getElementById("trackingStatus");
-const contactEmailInput = document.getElementById("contactEmail");
-const contactPhoneInput = document.getElementById("contactPhone");
-const deliveryWarning = document.getElementById("deliveryWarning");
-const contactNameInput = document.getElementById("contactName");
-const addContactBtn = document.getElementById("addContactBtn");
-const contactsTable = document.getElementById("contactsTable");
-
-let map;
-let marker;
-let alertLayer;
-let liveMarker;
-let trackingPath;
-let watchId = null;
-let currentPosition = null;
-let liveTrackingInterval = null;
-let trackingActive = false;
-
-const sirenAudio = document.getElementById("sirenAudio");
-
-const setStatus = (message) => {
-  if (!statusMessage) return;
-  statusMessage.textContent = message;
-};
-
-const setDeliveryWarning = (message = "") => {
-  if (!deliveryWarning) return;
-  deliveryWarning.textContent = message;
-};
 
 const renderContacts = (contacts) => {
   if (!contactsTable) return;
@@ -956,4 +914,3 @@ fetchHistory();
 fetchTrackingHistory();
 loadContacts();
 setTrackingStatus(false);
->>>>>>> 9ff4e1b8de1c80ab4df041ad2aa60eacb793586e
