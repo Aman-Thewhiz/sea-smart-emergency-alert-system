@@ -7,6 +7,8 @@ import logging
 import re
 from datetime import datetime, timezone
 from email.message import EmailMessage
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import smtplib
 
 from flask import Flask, jsonify, render_template, request, g
@@ -154,29 +156,42 @@ def send_email_alert(to_email: str, latitude: str, longitude: str, timestamp: st
 
     try:
         smtp_host = os.getenv("SMTP_HOST")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
         smtp_user = os.getenv("SMTP_USER")
         smtp_pass = os.getenv("SMTP_PASS")
-        mail_from = os.getenv("EMERGENCY_EMAIL_FROM")
+        from_email = os.getenv("EMERGENCY_EMAIL_FROM", smtp_user)
 
-        if not smtp_host or not smtp_user or not smtp_pass or not mail_from:
+        if not smtp_host or not smtp_user or not smtp_pass:
             raise Exception("SMTP not configured")
 
-        maps_link = f"https://www.google.com/maps?q={latitude},{longitude}"
+        subject = "🚨 EMERGENCY ALERT - Immediate Assistance Required"
+        maps_link = f"https://maps.google.com/?q={latitude},{longitude}"
+        body = (
+            "Emergency Alert Triggered!\n\n"
+            "Location:\n"
+            f"Latitude: {latitude}\n"
+            f"Longitude: {longitude}\n\n"
+            "Google Maps Link:\n"
+            f"{maps_link}\n\n"
+            "Please respond immediately.\n"
+        )
 
-        msg = EmailMessage()
-        msg["Subject"] = "Emergency Alert"
-        msg["From"] = mail_from
+        msg = MIMEMultipart()
+        msg["From"] = from_email
         msg["To"] = to_email
-        msg.set_content(f"Emergency! Location: {maps_link}")
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body, "plain"))
 
-        with smtplib.SMTP(smtp_host, 587) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.send_message(msg)
+        server = smtplib.SMTP(smtp_host, smtp_port)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
+        server.quit()
 
+        logging.info(f"Email sent to {to_email}")
         return True
     except Exception as exc:
-        print("Email failed:", str(exc))
+        logging.error(f"Email failed: {exc}")
         return False
 
 
