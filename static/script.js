@@ -42,7 +42,7 @@ const setDeliveryWarning = (message = "") => {
 const renderContacts = (contacts) => {
   if (!contactsTable) return;
   if (!contacts.length) {
-    contactsTable.innerHTML = '<tr class="empty-row"><td colspan="3">No contacts added.</td></tr>';
+    contactsTable.innerHTML = '<tr class="empty-row"><td colspan="4">No contacts added.</td></tr>';
     return;
   }
 
@@ -53,10 +53,21 @@ const renderContacts = (contacts) => {
           <td>${contact.name || "-"}</td>
           <td>${contact.email || ""}</td>
           <td>${contact.phone || ""}</td>
+          <td>
+            <button class="ghost-btn danger" type="button" data-contact-id="${contact.id}">Delete</button>
+          </td>
         </tr>
       `
     )
     .join("");
+
+  contactsTable.querySelectorAll("button[data-contact-id]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const contactId = button.getAttribute("data-contact-id");
+      if (!contactId) return;
+      await deleteContact(contactId);
+    });
+  });
 };
 
 const loadContacts = async () => {
@@ -102,6 +113,17 @@ const addContact = async () => {
   if (contactPhoneInput) contactPhoneInput.value = "";
   setDeliveryWarning("Contact added successfully.");
   await loadContacts();
+};
+
+const deleteContact = async (id) => {
+  const response = await fetch(`/delete_contact/${id}`, { method: "DELETE" });
+  const data = await response.json();
+
+  if (data.status === "success") {
+    await loadContacts();
+  } else {
+    alert(data.message || "Delete failed");
+  }
 };
 
 const setIndicator = (mode) => {
@@ -261,7 +283,7 @@ const sendAlert = async (lat, lng, contactEmail, contactPhone) => {
   }
 
   if (!response.ok) {
-    throw new Error(data.message || "Alert failed");
+    throw new Error(data.message || data.error || "Alert failed");
   }
 
   return data;
@@ -417,14 +439,23 @@ const handleAlert = async () => {
     const result = await sendAlert(latitude, longitude, "", "");
     if (result.demo_mode) {
       setStatus("Demo mode: Alert simulated successfully.");
+    } else if (result.success === false) {
+      setStatus(result.message || result.error || "Alert failed.");
     } else {
       setStatus(result.message || "Alert sent successfully.");
     }
     if (Array.isArray(result.delivery_results)) {
       setStatus(`Alert sent to ${result.delivery_results.length} emergency contacts`);
     }
-    updateLastAlert(result.alert.timestamp, latitude, longitude);
-    addAlertMarker(result.alert);
+
+    const timestamp = result.timestamp || (result.alert && result.alert.timestamp) || new Date().toISOString();
+    const alertInfo = result.alert || {
+      latitude,
+      longitude,
+      timestamp,
+    };
+    updateLastAlert(timestamp, latitude, longitude);
+    addAlertMarker(alertInfo);
     startLiveTracking();
     await fetchHistory();
   } catch (error) {

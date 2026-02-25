@@ -6,8 +6,7 @@ import uuid
 import logging
 import re
 from datetime import datetime, timezone
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from email.message import EmailMessage
 import smtplib
 
 from flask import Flask, jsonify, render_template, request, g
@@ -154,57 +153,60 @@ def send_email_alert(to_email: str, latitude: str, longitude: str, timestamp: st
         from_email = os.getenv("EMERGENCY_EMAIL_FROM")
 
         if not smtp_host or not smtp_user or not smtp_pass or not from_email:
-            logger.warning("SMTP not configured; skipping email delivery.")
+            print("SMTP not configured properly")
             return False
 
         try:
             smtp_port = int(smtp_port_raw)
         except ValueError:
-            logger.warning("Invalid SMTP_PORT value; skipping email delivery.")
+            print("Invalid SMTP_PORT value")
             return False
 
-        subject = "EMERGENCY ALERT - Immediate Assistance Required"
+        subject = "Emergency Alert"
         maps_link = f"https://maps.google.com/?q={latitude},{longitude}"
-        body = (
-            "Emergency Alert Triggered!\n\n"
-            "Location:\n"
-            f"Latitude: {latitude}\n"
-            f"Longitude: {longitude}\n\n"
-            "Google Maps Link:\n"
-            f"{maps_link}\n\n"
-            "Please respond immediately.\n"
-        )
-
-        msg = MIMEMultipart()
+        msg = EmailMessage()
+        msg["Subject"] = subject
         msg["From"] = from_email
         msg["To"] = to_email
-        msg["Subject"] = subject
-        msg.attach(MIMEText(body, "plain"))
+        msg.set_content(
+            "Emergency Alert!\n\n"
+            "Location:\n"
+            f"{maps_link}\n\n"
+            f"Latitude: {latitude}\n"
+            f"Longitude: {longitude}\n\n"
+            f"Time: {timestamp}\n"
+        )
 
         try:
+            print(f"SMTP connecting to {smtp_host}:{smtp_port}")
             with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
                 server.ehlo()
                 server.starttls()
                 server.ehlo()
+                print("SMTP TLS established")
                 server.login(smtp_user, smtp_pass)
+                print("SMTP login successful")
                 server.send_message(msg)
+            print("Email sent successfully")
             return True
         except Exception:
+            print("EMAIL ERROR: SMTP send failed")
             logger.exception("Email delivery failed.")
             return False
     except Exception:
+        print("EMAIL ERROR: Unexpected failure")
         logger.exception("Email delivery error.")
         return False
 
 
 def send_sms_alert(to_phone: str, latitude: str, longitude: str, timestamp: str) -> bool:
     if DEMO_MODE:
-        logger.info("[DEMO MODE] SMS simulated: %s", to_phone)
+        print("[DEMO MODE] SMS simulated:", to_phone)
         return True
 
     try:
         if Client is None:
-            logger.warning("Twilio client not available; skipping SMS delivery.")
+            print("Twilio client not available; skipping SMS delivery.")
             return False
 
         account_sid = os.getenv("TWILIO_ACCOUNT_SID")
@@ -212,21 +214,28 @@ def send_sms_alert(to_phone: str, latitude: str, longitude: str, timestamp: str)
         from_number = os.getenv("TWILIO_FROM_NUMBER")
 
         if not account_sid or not auth_token or not from_number:
-            logger.warning("Twilio not configured; skipping SMS delivery.")
+            print("Twilio not configured; skipping SMS delivery.")
             return False
 
         maps_link = f"https://www.google.com/maps?q={latitude},{longitude}"
+        normalized_phone = normalize_phone_simple(to_phone)
+        if not normalized_phone:
+            print("SMS ERROR: Missing destination phone")
+            return False
 
         client = Client(account_sid, auth_token)
 
-        client.messages.create(
-            body=f"Emergency! Location: {maps_link}",
+        message = client.messages.create(
+            body=f"Emergency Alert! Location: {maps_link}",
             from_=from_number,
-            to=to_phone,
+            to=normalized_phone,
         )
 
+        print("SMS sent successfully:", message.sid)
+
         return True
-    except Exception:
+    except Exception as exc:
+        print("SMS ERROR:", str(exc))
         logger.exception("SMS delivery failed.")
         return False
 
@@ -352,6 +361,23 @@ def get_contacts():
         conn.close()
 
 
+@app.route("/delete_contact/<int:contact_id>", methods=["DELETE"])
+def delete_contact(contact_id):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM contacts WHERE id=?", (contact_id,))
+        conn.commit()
+        conn.close()
+
+        if cursor.rowcount == 0:
+            return jsonify({"status": "error", "message": "Contact not found"}), 404
+
+        return jsonify({"status": "success"})
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
+
+
 @app.route("/update_location", methods=["POST"])
 def update_location():
     data = request.get_json(silent=True) or {}
@@ -439,6 +465,15 @@ def validate_email(value: str) -> None:
         raise ValueError("Invalid contact email.")
 
 
+def normalize_phone_simple(value: str) -> str:
+    cleaned = re.sub(r"[^0-9+]", "", str(value))
+    if not cleaned:
+        return cleaned
+    if cleaned.startswith("+"):
+        return cleaned
+    return f"+{cleaned}"
+
+
 @app.route("/send_alert", methods=["POST"])
 def send_alert():
     try:
@@ -450,8 +485,49 @@ def send_alert():
         if not latitude or not longitude:
             return jsonify({"success": False, "message": "Missing location"}), 400
 
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = data.get("timestamp") or datetime.now(timezone.utc).isoformat()
         alert_id = insert_alert(latitude, longitude, timestamp)
+
+        target_email = data.get("email") or data.get("contact_email")
+        target_phone = data.get("phone") or data.get("contact_phone")
+
+        if target_email:
+            email_sent = send_email_alert(target_email, latitude, longitude, timestamp)
+            sms_sent = False
+            if target_phone:
+                sms_sent = send_sms_alert(target_phone, latitude, longitude, timestamp)
+
+            print("Email result:", email_sent)
+            print("SMS result:", sms_sent)
+            print("Response sent to frontend")
+
+            if email_sent:
+                return jsonify(
+                    {
+                        "success": True,
+                        "timestamp": timestamp,
+                        "email_sent": email_sent,
+                        "sms_sent": sms_sent,
+                        "alert": {
+                            "id": alert_id,
+                            "latitude": latitude,
+                            "longitude": longitude,
+                            "timestamp": timestamp,
+                        },
+                    }
+                )
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Email failed",
+                        "timestamp": timestamp,
+                        "email_sent": email_sent,
+                        "sms_sent": sms_sent,
+                    }
+                ),
+                500,
+            )
 
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
@@ -459,6 +535,9 @@ def send_alert():
         conn.close()
 
         results = []
+
+        any_email_sent = False
+        any_sms_sent = False
 
         for contact in contacts:
             email_status = False
@@ -480,6 +559,9 @@ def send_alert():
                     timestamp,
                 )
 
+            any_email_sent = any_email_sent or email_status
+            any_sms_sent = any_sms_sent or sms_status
+
             results.append(
                 {
                     "name": contact["name"],
@@ -488,18 +570,40 @@ def send_alert():
                 }
             )
 
+        print("Email result:", any_email_sent)
+        print("SMS result:", any_sms_sent)
+        print("Response sent to frontend")
+
         return jsonify(
             {
                 "success": True,
+                "timestamp": timestamp,
+                "email_sent": any_email_sent,
+                "sms_sent": any_sms_sent,
                 "message": f"Alert sent to {len(results)} contacts",
                 "delivery_results": results,
-                "alert_id": alert_id,
+                "alert": {
+                    "id": alert_id,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "timestamp": timestamp,
+                },
             }
         )
 
-    except Exception:
+    except Exception as exc:
+        print("SEND ALERT ERROR:", str(exc))
         logger.exception("Send alert error.")
-        return jsonify({"success": False, "message": "Failed to send alert."}), 500
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": str(exc),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            ),
+            500,
+        )
 
 
 if __name__ == "__main__":
