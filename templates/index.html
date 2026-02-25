@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart Emergency Alert System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="app">
+    <header class="top-bar">
+      <div class="brand">
+        <span class="brand-mark">SEA</span>
+        <div>
+          <h1>Smart Emergency Alert System</h1>
+          <p>Instant alerts with live GPS location</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="themeToggle" class="ghost-btn">Toggle Theme</button>
+        <a class="ghost-btn" href="/history">Alert History</a>
+      </div>
+    </header>
+
+    <main class="layout split">
+      <section class="hero-card top">
+        <div class="status">
+          <span id="statusIndicator" class="status-pill safe">Safe Mode</span>
+          <label class="toggle">
+            <input type="checkbox" id="trackingToggle" />
+            <span>Continuous Tracking</span>
+          </label>
+        </div>
+
+        <div class="alert-zone">
+          <button id="alertButton" class="alert-btn">EMERGENCY ALERT</button>
+          <p id="statusMessage" class="status-message">Ready. Tap the button if you need help.</p>
+        </div>
+
+        <section class="card contacts-card">
+          <h2>Emergency Contacts</h2>
+
+          <div class="contact-form">
+            <label for="contactName">Contact Name</label>
+            <input type="text" id="contactName" placeholder="Enter contact name">
+
+            <label for="contactEmail">Contact Email</label>
+            <input type="email" id="contactEmail" placeholder="Enter contact email">
+
+            <label for="contactPhone">Contact Phone</label>
+            <input type="text" id="contactPhone" placeholder="Enter phone number with country code">
+
+            <button id="addContactBtn" class="btn-primary" type="button">Add Contact</button>
+          </div>
+
+          <p id="deliveryWarning" class="delivery-warning"></p>
+
+          <div class="contacts-list">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                </tr>
+              </thead>
+              <tbody id="contactsTable">
+                <tr class="empty-row">
+                  <td colspan="3">No contacts added.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+
+        <div class="tracking-panel">
+          <div>
+            <h3>Live Tracking</h3>
+            <p class="tracking-status" id="trackingStatus">Tracking OFF</p>
+          </div>
+          <div class="tracking-actions">
+            <button id="startTrackingBtn" class="ghost-btn">Start Live Tracking</button>
+            <button id="stopTrackingBtn" class="ghost-btn danger">Stop Live Tracking</button>
+          </div>
+        </div>
+
+        <div class="metrics">
+          <div class="metric-card">
+            <h3>Current Coordinates</h3>
+            <p id="coordsDisplay">Not available</p>
+          </div>
+          <div class="metric-card">
+            <h3>Last Alert</h3>
+            <p id="lastAlertDisplay">No alerts sent</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="dashboard table-card">
+        <div class="dashboard-header">
+          <h2>Alert Dashboard</h2>
+          <button id="refreshHistory" class="ghost-btn">Refresh</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Alert ID</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Timestamp (UTC)</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr class="empty-row">
+                <td colspan="4">No alerts yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="map-card">
+        <div id="map" aria-label="Live location map"></div>
+      </section>
+    </main>
+  </div>
+
+  <audio id="sirenAudio" preload="auto"></audio>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

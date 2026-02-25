@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alert History</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="app">
+    <header class="top-bar">
+      <div class="brand">
+        <span class="brand-mark">SEA</span>
+        <div>
+          <h1>Alert History</h1>
+          <p>Every alert recorded with coordinates.</p>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="ghost-btn" href="/">Back to Dashboard</a>
+      </div>
+    </header>
+
+    <main class="layout single">
+      <section class="dashboard wide">
+        <div class="dashboard-header">
+          <h2>All Alerts</h2>
+          <button id="refreshHistory" class="ghost-btn">Refresh</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Alert ID</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Timestamp (UTC)</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr class="empty-row">
+                <td colspan="4">No alerts yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
